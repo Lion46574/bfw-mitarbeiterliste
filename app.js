@@ -543,6 +543,59 @@ app.post("/employees", requireLogin, (req, res) => {
   return res.redirect("/");
 });
 
+app.get("/employees/:id", (req, res) => {
+  const employee = db
+    .prepare(
+      `SELECT e.id, e.first_name, e.last_name, e.department, u.username AS creator
+       FROM employees e
+       JOIN users u ON u.id = e.created_by
+       WHERE e.id = ?`
+    )
+    .get(req.params.id);
+
+  if (!employee) return res.status(404).send("Mitarbeiter nicht gefunden.");
+
+  const dienstgrade = db
+    .prepare(
+      `SELECT p.name
+       FROM employee_positions ep
+       JOIN positions p ON p.id = ep.position_id
+       WHERE ep.employee_id = ?
+       ORDER BY p.name ASC`
+    )
+    .all(req.params.id)
+    .map((row) => row.name);
+
+  const funktionen = db
+    .prepare(
+      `SELECT f.name
+       FROM employee_functions ef
+       JOIN functions_catalog f ON f.id = ef.function_id
+       WHERE ef.employee_id = ?
+       ORDER BY f.name ASC`
+    )
+    .all(req.params.id)
+    .map((row) => row.name);
+
+  const ausbildungen = db
+    .prepare(
+      `SELECT t.name
+       FROM employee_trainings et
+       JOIN trainings_catalog t ON t.id = et.training_id
+       WHERE et.employee_id = ?
+       ORDER BY t.name ASC`
+    )
+    .all(req.params.id)
+    .map((row) => row.name);
+
+  return res.render("employee-details", {
+    employee,
+    dienstgrade,
+    funktionen,
+    ausbildungen,
+  });
+});
+
 app.get("/employees/:id/edit", requireLogin, (req, res) => {
   const employee = db.prepare("SELECT * FROM employees WHERE id = ?").get(req.params.id);
   if (!employee) return res.status(404).send("Mitarbeiter nicht gefunden.");

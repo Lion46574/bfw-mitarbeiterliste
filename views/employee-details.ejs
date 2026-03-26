@@ -1,0 +1,50 @@
+<%- include("partials/header") %>
+
+<section class="card">
+  <h2>Details: <%= employee.first_name %> <%= employee.last_name %></h2>
+  <p><strong>Abteilung:</strong> <%= employee.department || "-" %></p>
+  <p><strong>Erstellt von:</strong> <%= employee.creator %></p>
+  <p><a href="/" class="button-link">Zurueck zur Liste</a></p>
+</section>
+
+<section class="card">
+  <h3>Uebersicht (Excel-Stil)</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Bereich</th>
+        <th>Eintrag</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% if (!dienstgrade.length && !funktionen.length && !ausbildungen.length) { %>
+        <tr>
+          <td colspan="2">Keine Details vorhanden.</td>
+        </tr>
+      <% } %>
+
+      <% dienstgrade.forEach((item) => { %>
+        <tr>
+          <td>Dienstgrad</td>
+          <td><%= item %></td>
+        </tr>
+      <% }) %>
+
+      <% funktionen.forEach((item) => { %>
+        <tr>
+          <td>Funktion</td>
+          <td><%= item %></td>
+        </tr>
+      <% }) %>
+
+      <% ausbildungen.forEach((item) => { %>
+        <tr>
+          <td>Ausbildung</td>
+          <td><%= item %></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</section>
+
+<%- include("partials/footer") %>

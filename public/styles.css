@@ -153,6 +153,16 @@ button {
   align-items: center;
 }
 
+.eye-link {
+  display: inline-block;
+  padding: 6px 10px;
+  border: 1px solid #7f1220;
+  border-radius: 6px;
+  text-decoration: none;
+  color: #7f1220;
+  background: #fff;
+}
+
 .danger {
   background: #a11d2c;
   color: #fff;

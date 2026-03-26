@@ -39,10 +39,8 @@
           <th>Name</th>
           <th>Abteilung</th>
           <th>Dienstgrad</th>
-          <th>Funktionen</th>
-          <th>Ausbildungen</th>
           <th>Erstellt von</th>
-          <% if (user) { %><th>Aktion</th><% } %>
+          <th>Aktion</th>
         </tr>
       </thead>
       <tbody>
@@ -51,17 +49,16 @@
             <td><%= employee.first_name %> <%= employee.last_name %></td>
             <td><%= employee.department || "-" %></td>
             <td><%= employee.dienstgrade || "-" %></td>
-            <td><%= employee.functions_text || "-" %></td>
-            <td><%= employee.trainings_text || "-" %></td>
             <td><%= employee.creator %></td>
-            <% if (user) { %>
-              <td class="actions">
+            <td class="actions">
+              <a href="/employees/<%= employee.id %>" class="eye-link" title="Details anzeigen">Auge</a>
+              <% if (user) { %>
                 <a href="/employees/<%= employee.id %>/edit">Bearbeiten</a>
                 <form method="post" action="/employees/<%= employee.id %>/delete" class="inline-form">
                   <button type="submit" class="danger">Entfernen</button>
                 </form>
-              </td>
-            <% } %>
+              <% } %>
+            </td>
           </tr>
         <% }) %>
       </tbody>
