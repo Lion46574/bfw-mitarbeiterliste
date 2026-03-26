@@ -4,6 +4,8 @@ const session = require("express-session");
 const SQLiteStore = require("connect-sqlite3")(session);
 const Database = require("better-sqlite3");
 const bcrypt = require("bcryptjs");
+const livereload = require("livereload");
+const connectLivereload = require("connect-livereload");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -99,6 +101,17 @@ app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 
 app.use(express.urlencoded({ extended: true }));
+
+if (process.env.ENABLE_LIVERELOAD === "true") {
+  const liveReloadServer = livereload.createServer();
+  liveReloadServer.watch([
+    path.join(__dirname, "views"),
+    path.join(__dirname, "public"),
+    path.join(__dirname, "app.js"),
+  ]);
+  app.use(connectLivereload());
+}
+
 app.use(express.static(path.join(__dirname, "public")));
 
 app.use(
@@ -166,6 +179,10 @@ function normalizeSelectedIds(rawValue) {
   if (!rawValue) return [];
   const list = Array.isArray(rawValue) ? rawValue : [rawValue];
   return [...new Set(list.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0))];
+}
+
+function getSelectedPositionIdsFromBody(body) {
+  return normalizeSelectedIds(body.position_ids || body["position_ids[]"]);
 }
 
 app.get("/", (req, res) => {
@@ -308,7 +325,7 @@ app.get("/employees/new", requireLogin, (req, res) => {
 
 app.post("/employees", requireLogin, (req, res) => {
   const { first_name, last_name, department } = req.body;
-  const selectedPositionIds = normalizeSelectedIds(req.body.position_ids);
+  const selectedPositionIds = getSelectedPositionIdsFromBody(req.body);
   if (!first_name || !last_name) {
     return res.status(400).render("employee-form", {
       employee: req.body,
@@ -363,7 +380,7 @@ app.get("/employees/:id/edit", requireLogin, (req, res) => {
 
 app.post("/employees/:id/edit", requireLogin, (req, res) => {
   const { first_name, last_name, department } = req.body;
-  const selectedPositionIds = normalizeSelectedIds(req.body.position_ids);
+  const selectedPositionIds = getSelectedPositionIdsFromBody(req.body);
   if (!first_name || !last_name) {
     return res.status(400).render("employee-form", {
       employee: { id: req.params.id, ...req.body },

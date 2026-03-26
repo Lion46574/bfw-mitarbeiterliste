@@ -6,6 +6,12 @@
 
 `npm start`
 
+## Automatisch aktualisieren (Entwicklung)
+
+`npm run dev`
+
+Bei jeder Aenderung an `app.js`, `views` oder `public` startet der Server automatisch neu und die Website aktualisiert sich im Browser automatisch.
+
 Oeffentliche Mitarbeiterliste fuer die BF Wien (Feuerwehr) mit geschuetzter Bearbeitung.
 
 ## Funktionen
