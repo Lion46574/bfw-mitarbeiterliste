@@ -4,7 +4,8 @@
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
-    "dev": "set ENABLE_LIVERELOAD=true&& nodemon --watch app.js --watch views --watch public --ext js,ejs,css app.js"
+    "dev": "set ENABLE_LIVERELOAD=true&& nodemon --watch app.js --watch views --watch public --ext js,ejs,css app.js",
+    "seed:public-users": "node scripts/seed-public-users.js"
   },
   "keywords": [],
   "author": "",

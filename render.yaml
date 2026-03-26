@@ -5,8 +5,14 @@ services:
     plan: free
     buildCommand: npm install
     startCommand: npm start
+    disk:
+      name: bfw-data
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: NODE_VERSION
         value: 20
       - key: SESSION_SECRET
         generateValue: true
+      - key: DATA_DIR
+        value: /var/data

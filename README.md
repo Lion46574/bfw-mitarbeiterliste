@@ -75,3 +75,19 @@ Auf Render musst du einen Persistent Disk mounten (z. B. `/var/data`) und setzen
 - `DATA_DIR=/var/data`
 
 Dann bleiben deine Website-Aenderungen auch nach Deploy/Restart erhalten.
+
+## Benutzer auf oeffentlicher Website automatisch anlegen
+
+Dieses Projekt enthaelt ein Skript fuer die Benutzer:
+
+- Logerhauser / 2501
+- Hirsch / 0109
+- Steiner / 1508
+- Mickel / 1501
+- Schulz / 3101
+
+Ausfuehren auf Render Shell:
+
+- `npm run seed:public-users`
+
+Das Skript erstellt die Benutzer oder aktualisiert sie, falls sie bereits existieren.
