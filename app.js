@@ -142,6 +142,8 @@ app.use((req, res, next) => {
   }
   res.locals.user = req.user;
   res.locals.departments = [];
+  res.locals.positions = [];
+  res.locals.selectedPositionIds = [];
   res.locals.filters = { q: "", department: "" };
   next();
 });
@@ -277,7 +279,48 @@ app.get("/account/password", requireLogin, (req, res) => {
   res.render("change-password", { error: null, success: null });
 });
 
+app.get("/password", requireLogin, (req, res) => {
+  res.render("change-password", { error: null, success: null });
+});
+
 app.post("/account/password", requireLogin, (req, res) => {
+  const { current_password, new_password, confirm_password } = req.body;
+  if (!current_password || !new_password || !confirm_password) {
+    return res.status(400).render("change-password", {
+      error: "Bitte alle Felder ausfuellen.",
+      success: null,
+    });
+  }
+  if (new_password.length < 8) {
+    return res.status(400).render("change-password", {
+      error: "Das neue Passwort muss mindestens 8 Zeichen haben.",
+      success: null,
+    });
+  }
+  if (new_password !== confirm_password) {
+    return res.status(400).render("change-password", {
+      error: "Neues Passwort und Bestaetigung stimmen nicht ueberein.",
+      success: null,
+    });
+  }
+
+  const fullUser = db.prepare("SELECT * FROM users WHERE id = ?").get(req.user.id);
+  if (!fullUser || !bcrypt.compareSync(current_password, fullUser.password_hash)) {
+    return res.status(401).render("change-password", {
+      error: "Aktuelles Passwort ist falsch.",
+      success: null,
+    });
+  }
+
+  const newHash = bcrypt.hashSync(new_password, 10);
+  db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(newHash, req.user.id);
+  return res.render("change-password", {
+    error: null,
+    success: "Passwort wurde erfolgreich geaendert.",
+  });
+});
+
+app.post("/password", requireLogin, (req, res) => {
   const { current_password, new_password, confirm_password } = req.body;
   if (!current_password || !new_password || !confirm_password) {
     return res.status(400).render("change-password", {
@@ -429,6 +472,10 @@ app.get("/admin/settings", requireAdmin, (req, res) => {
   return renderAdminSettings(res);
 });
 
+app.get("/settings", requireAdmin, (req, res) => {
+  return renderAdminSettings(res);
+});
+
 app.post("/admin/departments", requireAdmin, (req, res) => {
   const name = (req.body.name || "").trim();
   if (!name) {
@@ -554,8 +601,25 @@ app.post("/admin/users/:id/delete", requireAdmin, (req, res) => {
   return res.redirect("/admin/users");
 });
 
+app.get("/debug-routes", (req, res) => {
+  const stack = (app._router && app._router.stack) || (app.router && app.router.stack) || [];
+  const routes = stack
+    .filter((layer) => layer.route && layer.route.path)
+    .map((layer) => ({
+      path: layer.route.path,
+      methods: Object.keys(layer.route.methods || {}),
+    }));
+  return res.json(routes);
+});
+
 app.use((req, res) => {
   res.status(404).send("Seite nicht gefunden.");
+});
+
+app.use((err, req, res, next) => {
+  console.error("Unerwarteter Serverfehler:", err);
+  if (res.headersSent) return next(err);
+  return res.status(500).send("Internal Server Error");
 });
 
 app.listen(PORT, () => {
