@@ -11,25 +11,41 @@ const connectLivereload = require("connect-livereload");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const dataDir = process.env.DATA_DIR
-  ? path.resolve(process.env.DATA_DIR)
-  : path.join(__dirname, "data");
-fs.mkdirSync(dataDir, { recursive: true });
+const legacyDbPath = path.join(__dirname, "database.sqlite");
+const legacySessionPath = path.join(__dirname, "sessions.sqlite");
+
+// Lokale Default-Datenbank: Projektordner (damit Neustarts konsistent sind).
+// Render/Container: ueber DATA_DIR/DATABASE_PATH auf Persistent Disk umschalten.
+const dataDir = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : null;
+if (dataDir) fs.mkdirSync(dataDir, { recursive: true });
 
 const dbPath = process.env.DATABASE_PATH
   ? path.resolve(process.env.DATABASE_PATH)
-  : path.join(dataDir, "database.sqlite");
+  : dataDir
+    ? path.join(dataDir, "database.sqlite")
+    : legacyDbPath;
+
 const sessionDbPath = process.env.SESSION_DB_PATH
   ? path.resolve(process.env.SESSION_DB_PATH)
-  : path.join(dataDir, "sessions.sqlite");
+  : dataDir
+    ? path.join(dataDir, "sessions.sqlite")
+    : legacySessionPath;
+
 fs.mkdirSync(path.dirname(sessionDbPath), { recursive: true });
 
-const legacyDbPath = path.join(__dirname, "database.sqlite");
-const legacySessionPath = path.join(__dirname, "sessions.sqlite");
-if (!fs.existsSync(dbPath) && fs.existsSync(legacyDbPath)) {
+// Wichtig: Wenn DATA_DIR auf Persistent Disk gesetzt ist (Render), dann
+// darf die App NICHT jedes Mal eine ggf. alte `database.sqlite` aus dem
+// Projektordner hineinkopieren. Sonst kommen alte Testdaten wieder.
+const shouldSeedLegacyIntoPersistent = !dataDir;
+
+if (shouldSeedLegacyIntoPersistent && !fs.existsSync(dbPath) && fs.existsSync(legacyDbPath)) {
   fs.copyFileSync(legacyDbPath, dbPath);
 }
-if (!fs.existsSync(sessionDbPath) && fs.existsSync(legacySessionPath)) {
+if (
+  shouldSeedLegacyIntoPersistent &&
+  !fs.existsSync(sessionDbPath) &&
+  fs.existsSync(legacySessionPath)
+) {
   fs.copyFileSync(legacySessionPath, sessionDbPath);
 }
 
