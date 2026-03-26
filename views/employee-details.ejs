@@ -8,41 +8,28 @@
 </section>
 
 <section class="card">
-  <h3>Uebersicht (Excel-Stil)</h3>
+  <h3>Information</h3>
   <table>
     <thead>
       <tr>
-        <th>Bereich</th>
-        <th>Eintrag</th>
+        <th>Funktion</th>
+        <th>Ausbildung</th>
       </tr>
     </thead>
     <tbody>
-      <% if (!dienstgrade.length && !funktionen.length && !ausbildungen.length) { %>
+      <% const maxRows = Math.max(funktionen.length, ausbildungen.length); %>
+      <% if (!maxRows) { %>
         <tr>
-          <td colspan="2">Keine Details vorhanden.</td>
+          <td colspan="2">Keine Eintraege vorhanden.</td>
         </tr>
       <% } %>
 
-      <% dienstgrade.forEach((item) => { %>
+      <% for (let i = 0; i < maxRows; i += 1) { %>
         <tr>
-          <td>Dienstgrad</td>
-          <td><%= item %></td>
+          <td><%= funktionen[i] || "-" %></td>
+          <td><%= ausbildungen[i] || "-" %></td>
         </tr>
-      <% }) %>
-
-      <% funktionen.forEach((item) => { %>
-        <tr>
-          <td>Funktion</td>
-          <td><%= item %></td>
-        </tr>
-      <% }) %>
-
-      <% ausbildungen.forEach((item) => { %>
-        <tr>
-          <td>Ausbildung</td>
-          <td><%= item %></td>
-        </tr>
-      <% }) %>
+      <% } %>
     </tbody>
   </table>
 </section>
