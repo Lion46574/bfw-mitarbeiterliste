@@ -319,17 +319,28 @@ app.post("/employees", requireLogin, (req, res) => {
     });
   }
 
-  const inserted = db.prepare(
-    `INSERT INTO employees (first_name, last_name, department, position, created_by)
-     VALUES (?, ?, ?, ?, ?)`
-  ).run(first_name.trim(), last_name.trim(), department || "", "", req.user.id);
+  try {
+    const inserted = db.prepare(
+      `INSERT INTO employees (first_name, last_name, department, position, created_by)
+       VALUES (?, ?, ?, ?, ?)`
+    ).run(first_name.trim(), last_name.trim(), department || "", "", req.user.id);
 
-  const insertEmployeePosition = db.prepare(
-    "INSERT OR IGNORE INTO employee_positions (employee_id, position_id) VALUES (?, ?)"
-  );
-  selectedPositionIds.forEach((positionId) => {
-    insertEmployeePosition.run(inserted.lastInsertRowid, positionId);
-  });
+    const insertEmployeePosition = db.prepare(
+      "INSERT OR IGNORE INTO employee_positions (employee_id, position_id) VALUES (?, ?)"
+    );
+    selectedPositionIds.forEach((positionId) => {
+      insertEmployeePosition.run(inserted.lastInsertRowid, positionId);
+    });
+  } catch (err) {
+    console.error("Fehler beim Anlegen eines Mitarbeiters:", err);
+    return res.status(500).render("employee-form", {
+      employee: req.body,
+      error: "Mitarbeiter konnte nicht gespeichert werden. Bitte spaeter erneut versuchen.",
+      departments: getDepartments(),
+      positions: getPositions(),
+      selectedPositionIds,
+    });
+  }
 
   return res.redirect("/");
 });
@@ -363,19 +374,30 @@ app.post("/employees/:id/edit", requireLogin, (req, res) => {
     });
   }
 
-  db.prepare(
-    `UPDATE employees
-     SET first_name = ?, last_name = ?, department = ?, position = ?, updated_at = CURRENT_TIMESTAMP
-     WHERE id = ?`
-  ).run(first_name.trim(), last_name.trim(), department || "", "", req.params.id);
+  try {
+    db.prepare(
+      `UPDATE employees
+       SET first_name = ?, last_name = ?, department = ?, position = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`
+    ).run(first_name.trim(), last_name.trim(), department || "", "", req.params.id);
 
-  db.prepare("DELETE FROM employee_positions WHERE employee_id = ?").run(req.params.id);
-  const insertEmployeePosition = db.prepare(
-    "INSERT OR IGNORE INTO employee_positions (employee_id, position_id) VALUES (?, ?)"
-  );
-  selectedPositionIds.forEach((positionId) => {
-    insertEmployeePosition.run(req.params.id, positionId);
-  });
+    db.prepare("DELETE FROM employee_positions WHERE employee_id = ?").run(req.params.id);
+    const insertEmployeePosition = db.prepare(
+      "INSERT OR IGNORE INTO employee_positions (employee_id, position_id) VALUES (?, ?)"
+    );
+    selectedPositionIds.forEach((positionId) => {
+      insertEmployeePosition.run(req.params.id, positionId);
+    });
+  } catch (err) {
+    console.error("Fehler beim Bearbeiten eines Mitarbeiters:", err);
+    return res.status(500).render("employee-form", {
+      employee: { id: req.params.id, ...req.body },
+      error: "Mitarbeiter konnte nicht aktualisiert werden. Bitte spaeter erneut versuchen.",
+      departments: getDepartments(),
+      positions: getPositions(),
+      selectedPositionIds,
+    });
+  }
 
   return res.redirect("/");
 });
