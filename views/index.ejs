@@ -1,0 +1,63 @@
+<%- include("partials/header") %>
+
+<section class="card">
+  <h2>Mitarbeiter Uebersicht</h2>
+  <p>Diese Seite ist fuer die BF Wien (Feuerwehr). Bearbeitung ist nur mit einem vom Admin angelegten Konto moeglich.</p>
+</section>
+
+<section class="card">
+  <form method="get" action="/" class="filter-row">
+    <input
+      type="text"
+      name="q"
+      placeholder="Suche nach Name oder Position"
+      value="<%= (typeof filters !== 'undefined' && filters && filters.q) ? filters.q : '' %>"
+    />
+    <select name="department">
+      <option value="">Alle Abteilungen</option>
+      <% (Array.isArray(departments) ? departments : []).forEach((dep) => { %>
+        <option
+          value="<%= dep %>"
+          <%= (typeof filters !== 'undefined' && filters && filters.department === dep) ? "selected" : "" %>
+        >
+          <%= dep %>
+        </option>
+      <% }) %>
+    </select>
+    <button type="submit">Filtern</button>
+    <a href="/" class="button-link">Zuruecksetzen</a>
+  </form>
+</section>
+
+<section class="card">
+  <% if (!employees.length) { %>
+    <p>Noch keine Mitarbeiter eingetragen.</p>
+  <% } else { %>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Abteilung</th>
+          <th>Position</th>
+          <th>Erstellt von</th>
+          <% if (user) { %><th>Aktion</th><% } %>
+        </tr>
+      </thead>
+      <tbody>
+        <% employees.forEach((employee) => { %>
+          <tr>
+            <td><%= employee.first_name %> <%= employee.last_name %></td>
+            <td><%= employee.department || "-" %></td>
+            <td><%= employee.position || "-" %></td>
+            <td><%= employee.creator %></td>
+            <% if (user) { %>
+              <td><a href="/employees/<%= employee.id %>/edit">Bearbeiten</a></td>
+            <% } %>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  <% } %>
+</section>
+
+<%- include("partials/footer") %>

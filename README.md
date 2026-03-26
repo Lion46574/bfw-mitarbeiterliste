@@ -1,0 +1,46 @@
+# BF Wien Mitarbeiterliste
+
+Oeffentliche Mitarbeiterliste fuer die BF Wien (Feuerwehr) mit geschuetzter Bearbeitung.
+
+## Funktionen
+
+- Oeffentliche Ansicht der Mitarbeiterliste
+- Login nur fuer von Admin angelegte Konten
+- Mitarbeiter anlegen und bearbeiten (eingeloggte Benutzer)
+- Adminbereich zum Erstellen/Verwalten von Konten
+
+## Starten
+
+1. Abhaengigkeiten installieren:
+   - `npm install`
+2. Server starten:
+   - `npm start`
+3. Website oeffnen:
+   - `http://localhost:3000`
+
+## Standard-Admin
+
+Beim ersten Start wird automatisch ein Admin erstellt:
+
+- Benutzername: `admin`
+- Passwort: `admin123!`
+
+Optional kannst du eigene Werte setzen:
+
+- `ADMIN_USER`
+- `ADMIN_PASS`
+- `SESSION_SECRET`
+
+## Oeffentlich auf Render deployen
+
+1. Projekt auf GitHub hochladen
+2. Auf [Render](https://render.com/) einloggen
+3. `New +` -> `Blueprint`
+4. GitHub-Repo auswaehlen (Render erkennt `render.yaml`)
+5. Deploy starten
+6. Nach dem Deploy bekommst du eine URL wie:
+   - `https://bfw-mitarbeiterliste.onrender.com`
+
+Hinweis:
+- Render Free Plan kann beim ersten Aufruf kurz schlafen.
+- Fuer Google-Indexierung spaeter eine eigene Domain verbinden.

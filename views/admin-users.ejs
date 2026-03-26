@@ -1,0 +1,64 @@
+<%- include("partials/header") %>
+
+<section class="card">
+  <h2>Kontenverwaltung (Admin)</h2>
+  <p>Nur Admins koennen neue Benutzerkonten erstellen.</p>
+  <% if (error) { %>
+    <p class="error"><%= error %></p>
+  <% } %>
+
+  <form method="post" action="/admin/users" class="form-grid">
+    <label for="username">Benutzername</label>
+    <input id="username" name="username" required />
+
+    <label for="password">Passwort</label>
+    <input id="password" type="password" name="password" required />
+
+    <label for="role">Rolle</label>
+    <select id="role" name="role">
+      <option value="editor">Editor (bearbeiten)</option>
+      <option value="admin">Admin (Konten + bearbeiten)</option>
+    </select>
+
+    <button type="submit">Konto erstellen</button>
+  </form>
+</section>
+
+<section class="card">
+  <h3>Bestehende Konten</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Benutzername</th>
+        <th>Rolle</th>
+        <th>Status</th>
+        <th>Erstellt am</th>
+        <th>Aktionen</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% users.forEach((u) => { %>
+        <tr>
+          <td><%= u.username %></td>
+          <td><%= u.role %></td>
+          <td><%= u.is_active ? "Aktiv" : "Deaktiviert" %></td>
+          <td><%= u.created_at %></td>
+          <td class="actions">
+            <% if (user.id !== u.id) { %>
+              <form method="post" action="/admin/users/<%= u.id %>/toggle-active" class="inline-form">
+                <button type="submit"><%= u.is_active ? "Deaktivieren" : "Aktivieren" %></button>
+              </form>
+              <form method="post" action="/admin/users/<%= u.id %>/delete" class="inline-form">
+                <button type="submit" class="danger">Loeschen</button>
+              </form>
+            <% } else { %>
+              <span>Eigenes Konto</span>
+            <% } %>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</section>
+
+<%- include("partials/footer") %>
