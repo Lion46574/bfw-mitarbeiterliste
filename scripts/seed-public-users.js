@@ -26,6 +26,8 @@ db.exec(`
 `);
 
 const users = [
+  { username: "Personalabteilung", password: "122", role: "admin" },
+  { username: "kommando", password: "122", role: "admin" },
   { username: "Logerhauser", password: "2501", role: "editor" },
   { username: "Hirsch", password: "0109", role: "editor" },
   { username: "Steiner", password: "1508", role: "editor" },
