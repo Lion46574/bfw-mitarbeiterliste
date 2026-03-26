@@ -5,7 +5,8 @@
   "scripts": {
     "start": "node app.js",
     "dev": "set ENABLE_LIVERELOAD=true&& nodemon --watch app.js --watch views --watch public --ext js,ejs,css app.js",
-    "seed:public-users": "node scripts/seed-public-users.js"
+    "seed:public-users": "node scripts/seed-public-users.js",
+    "purge:employees": "node scripts/purge-employees.js"
   },
   "keywords": [],
   "author": "",
