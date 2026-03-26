@@ -121,23 +121,87 @@ if (!employeeColumns.some((column) => column.name === "trainings_text")) {
   db.exec("ALTER TABLE employees ADD COLUMN trainings_text TEXT");
 }
 
+const positionColumns = db.prepare("PRAGMA table_info(positions)").all();
+if (!positionColumns.some((column) => column.name === "sort_order")) {
+  db.exec("ALTER TABLE positions ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 999");
+}
+
+const functionColumns = db.prepare("PRAGMA table_info(functions_catalog)").all();
+if (!functionColumns.some((column) => column.name === "sort_order")) {
+  db.exec("ALTER TABLE functions_catalog ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 999");
+}
+
+const trainingColumns = db.prepare("PRAGMA table_info(trainings_catalog)").all();
+if (!trainingColumns.some((column) => column.name === "sort_order")) {
+  db.exec("ALTER TABLE trainings_catalog ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 999");
+}
+
 function seedDefaultOptions() {
   const defaultDepartments = ["MA-68-Leopoldstadt", "MA-68-Zentral"];
   const defaultPositions = [
-    "PFM-Provisorischerfeuewerhmann",
-    "FM-Feuwehrmann",
-    "OFM-Obefeuerwehrmann",
+    "PFM-Provisorischer Feuerwehrmann",
+    "FM-Feuerwehrmann",
+    "OFM-Oberfeuerwehrmann",
+    "OFMC-OFM-Oberfeuerwehrmann mit Chargen Funktion",
+    "1.OFM-1. Oberfeuerwehrmann",
+    "LM-Loeschmeister",
+    "BM-Brandmeister",
+    "OBM-Oberbrandmeister",
+    "HBM-Hauptbrandmeister",
+    "1.HBM-1. Hauptbrandmeister",
+    "IHBM-Inspektionshauptbrandmeister",
+    "OFA-Offiziersanwaerter",
+    "BK-Brand Kommissar",
+    "BR-Brandrat",
+    "OBR-Oberbrandrat",
+    "HIO-HIO Oberbrandrat",
+    "STV-BD-Stellv. Branddirektor",
+    "BD-Branddirektor",
   ];
 
   const insertDepartment = db.prepare("INSERT OR IGNORE INTO departments (name) VALUES (?)");
   const insertPosition = db.prepare("INSERT OR IGNORE INTO positions (name) VALUES (?)");
+  const updatePositionOrder = db.prepare("UPDATE positions SET sort_order = ? WHERE name = ?");
   const insertFunction = db.prepare("INSERT OR IGNORE INTO functions_catalog (name) VALUES (?)");
+  const updateFunctionOrder = db.prepare("UPDATE functions_catalog SET sort_order = ? WHERE name = ?");
   const insertTraining = db.prepare("INSERT OR IGNORE INTO trainings_catalog (name) VALUES (?)");
+  const updateTrainingOrder = db.prepare("UPDATE trainings_catalog SET sort_order = ? WHERE name = ?");
 
   defaultDepartments.forEach((name) => insertDepartment.run(name));
-  defaultPositions.forEach((name) => insertPosition.run(name));
-  ["Gruppenkommandant", "Maschinist", "ATS/KS"].forEach((name) => insertFunction.run(name));
-  ["Atemschutz", "Funklehrgang"].forEach((name) => insertTraining.run(name));
+  defaultPositions.forEach((name, index) => {
+    insertPosition.run(name);
+    updatePositionOrder.run(index + 1, name);
+  });
+  [
+    "Dienstaufsicht",
+    "Personalabteilung",
+    "ATS/KS",
+    "FHZ/m.Wesen",
+    "Grundausbildung",
+    "Atemschutz Ausbildner",
+    "FMD",
+    "Leitstellen Ausbilder",
+    "Schad-Gefahrenstoff",
+    "Hoehenretter",
+    "Presse Stelle",
+  ].forEach((name, index) => {
+    insertFunction.run(name);
+    updateFunctionOrder.run(index + 1, name);
+  });
+  [
+    "Leitstelle/Florian Wien",
+    "Einsatzleitung",
+    "Gruppenkommadant",
+    "Grundausbildung",
+    "Atemschutztraeger",
+    "Maschinist",
+    "Gefahrengut/Schadstoff",
+    "Hoehenretter",
+    "FMD",
+  ].forEach((name, index) => {
+    insertTraining.run(name);
+    updateTrainingOrder.run(index + 1, name);
+  });
 }
 
 function createDefaultAdmin() {
@@ -226,15 +290,15 @@ function getDepartments() {
 }
 
 function getPositions() {
-  return db.prepare("SELECT id, name FROM positions ORDER BY name ASC").all();
+  return db.prepare("SELECT id, name FROM positions ORDER BY sort_order ASC, name ASC").all();
 }
 
 function getFunctionsCatalog() {
-  return db.prepare("SELECT id, name FROM functions_catalog ORDER BY name ASC").all();
+  return db.prepare("SELECT id, name FROM functions_catalog ORDER BY sort_order ASC, name ASC").all();
 }
 
 function getTrainingsCatalog() {
-  return db.prepare("SELECT id, name FROM trainings_catalog ORDER BY name ASC").all();
+  return db.prepare("SELECT id, name FROM trainings_catalog ORDER BY sort_order ASC, name ASC").all();
 }
 
 function renderAdminSettings(res, payload = {}) {
@@ -763,22 +827,22 @@ app.post("/admin/positions/:id/delete", requireAdmin, (req, res) => {
 app.post("/admin/functions", requireAdmin, (req, res) => {
   const name = (req.body.name || "").trim();
   if (!name) {
-    return renderAdminSettings(res.status(400), { error: "Bitte eine Funktion eingeben." });
+    return renderAdminSettings(res.status(400), { error: "Bitte ein Referat eingeben." });
   }
   try {
     db.prepare("INSERT INTO functions_catalog (name) VALUES (?)").run(name);
-    return renderAdminSettings(res, { success: "Funktion hinzugefuegt." });
+    return renderAdminSettings(res, { success: "Referat hinzugefuegt." });
   } catch (err) {
     const message = err.code === "SQLITE_CONSTRAINT_UNIQUE"
-      ? "Diese Funktion existiert bereits."
-      : "Funktion konnte nicht hinzugefuegt werden.";
+      ? "Dieses Referat existiert bereits."
+      : "Referat konnte nicht hinzugefuegt werden.";
     return renderAdminSettings(res.status(400), { error: message });
   }
 });
 
 app.post("/admin/functions/:id/delete", requireAdmin, (req, res) => {
   db.prepare("DELETE FROM functions_catalog WHERE id = ?").run(Number(req.params.id));
-  return renderAdminSettings(res, { success: "Funktion geloescht." });
+  return renderAdminSettings(res, { success: "Referat geloescht." });
 });
 
 app.post("/admin/trainings", requireAdmin, (req, res) => {

@@ -2,7 +2,7 @@
 
 <section class="card">
   <h2>Admin Einstellungen</h2>
-  <p>Hier koennen Admins Abteilungen, Dienstgrade, Funktionen und Ausbildungen verwalten.</p>
+  <p>Hier koennen Admins Abteilungen, Dienstgrade, Referate und Ausbildungen verwalten.</p>
   <% if (error) { %>
     <p class="error"><%= error %></p>
   <% } %>
@@ -72,17 +72,17 @@
 </section>
 
 <section class="card">
-  <h3>Funktionen verwalten</h3>
+  <h3>Referate verwalten</h3>
   <form method="post" action="/admin/functions" class="form-grid">
-    <label for="function_name">Neue Funktion</label>
+    <label for="function_name">Neues Referat</label>
     <input id="function_name" name="name" placeholder="z. B. Gruppenkommandant" required />
-    <button type="submit">Funktion hinzufuegen</button>
+    <button type="submit">Referat hinzufuegen</button>
   </form>
 
   <table>
     <thead>
       <tr>
-        <th>Funktion</th>
+        <th>Referat</th>
         <th>Aktion</th>
       </tr>
     </thead>

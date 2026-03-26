@@ -39,7 +39,6 @@
           <th>Name</th>
           <th>Abteilung</th>
           <th>Dienstgrad</th>
-          <th>Erstellt von</th>
           <th>Aktion</th>
         </tr>
       </thead>
@@ -49,7 +48,6 @@
             <td><%= employee.first_name %> <%= employee.last_name %></td>
             <td><%= employee.department || "-" %></td>
             <td><%= employee.dienstgrade || "-" %></td>
-            <td><%= employee.creator %></td>
             <td class="actions">
               <a href="/employees/<%= employee.id %>" class="eye-link" title="Details anzeigen">Auge</a>
               <% if (user) { %>
