@@ -1,4 +1,5 @@
 const path = require("path");
+const fs = require("fs");
 const express = require("express");
 const session = require("express-session");
 const SQLiteStore = require("connect-sqlite3")(session);
@@ -10,7 +11,29 @@ const connectLivereload = require("connect-livereload");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const db = new Database(path.join(__dirname, "database.sqlite"));
+const dataDir = process.env.DATA_DIR
+  ? path.resolve(process.env.DATA_DIR)
+  : path.join(__dirname, "data");
+fs.mkdirSync(dataDir, { recursive: true });
+
+const dbPath = process.env.DATABASE_PATH
+  ? path.resolve(process.env.DATABASE_PATH)
+  : path.join(dataDir, "database.sqlite");
+const sessionDbPath = process.env.SESSION_DB_PATH
+  ? path.resolve(process.env.SESSION_DB_PATH)
+  : path.join(dataDir, "sessions.sqlite");
+fs.mkdirSync(path.dirname(sessionDbPath), { recursive: true });
+
+const legacyDbPath = path.join(__dirname, "database.sqlite");
+const legacySessionPath = path.join(__dirname, "sessions.sqlite");
+if (!fs.existsSync(dbPath) && fs.existsSync(legacyDbPath)) {
+  fs.copyFileSync(legacyDbPath, dbPath);
+}
+if (!fs.existsSync(sessionDbPath) && fs.existsSync(legacySessionPath)) {
+  fs.copyFileSync(legacySessionPath, sessionDbPath);
+}
+
+const db = new Database(dbPath);
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
@@ -55,11 +78,47 @@ db.exec(`
     FOREIGN KEY(employee_id) REFERENCES employees(id) ON DELETE CASCADE,
     FOREIGN KEY(position_id) REFERENCES positions(id) ON DELETE CASCADE
   );
+
+  CREATE TABLE IF NOT EXISTS functions_catalog (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT UNIQUE NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS trainings_catalog (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT UNIQUE NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS employee_functions (
+    employee_id INTEGER NOT NULL,
+    function_id INTEGER NOT NULL,
+    PRIMARY KEY (employee_id, function_id),
+    FOREIGN KEY(employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+    FOREIGN KEY(function_id) REFERENCES functions_catalog(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS employee_trainings (
+    employee_id INTEGER NOT NULL,
+    training_id INTEGER NOT NULL,
+    PRIMARY KEY (employee_id, training_id),
+    FOREIGN KEY(employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+    FOREIGN KEY(training_id) REFERENCES trainings_catalog(id) ON DELETE CASCADE
+  );
 `);
 
 const userColumns = db.prepare("PRAGMA table_info(users)").all();
 if (!userColumns.some((column) => column.name === "is_active")) {
   db.exec("ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1");
+}
+
+const employeeColumns = db.prepare("PRAGMA table_info(employees)").all();
+if (!employeeColumns.some((column) => column.name === "functions_text")) {
+  db.exec("ALTER TABLE employees ADD COLUMN functions_text TEXT");
+}
+if (!employeeColumns.some((column) => column.name === "trainings_text")) {
+  db.exec("ALTER TABLE employees ADD COLUMN trainings_text TEXT");
 }
 
 function seedDefaultOptions() {
@@ -72,9 +131,13 @@ function seedDefaultOptions() {
 
   const insertDepartment = db.prepare("INSERT OR IGNORE INTO departments (name) VALUES (?)");
   const insertPosition = db.prepare("INSERT OR IGNORE INTO positions (name) VALUES (?)");
+  const insertFunction = db.prepare("INSERT OR IGNORE INTO functions_catalog (name) VALUES (?)");
+  const insertTraining = db.prepare("INSERT OR IGNORE INTO trainings_catalog (name) VALUES (?)");
 
   defaultDepartments.forEach((name) => insertDepartment.run(name));
   defaultPositions.forEach((name) => insertPosition.run(name));
+  ["Gruppenkommandant", "Maschinist", "ATS/KS"].forEach((name) => insertFunction.run(name));
+  ["Atemschutz", "Funklehrgang"].forEach((name) => insertTraining.run(name));
 }
 
 function createDefaultAdmin() {
@@ -117,8 +180,8 @@ app.use(express.static(path.join(__dirname, "public")));
 app.use(
   session({
     store: new SQLiteStore({
-      db: "sessions.sqlite",
-      dir: __dirname,
+      db: path.basename(sessionDbPath),
+      dir: path.dirname(sessionDbPath),
     }),
     secret: process.env.SESSION_SECRET || "bfw-mitarbeiter-secret",
     resave: false,
@@ -166,12 +229,24 @@ function getPositions() {
   return db.prepare("SELECT id, name FROM positions ORDER BY name ASC").all();
 }
 
+function getFunctionsCatalog() {
+  return db.prepare("SELECT id, name FROM functions_catalog ORDER BY name ASC").all();
+}
+
+function getTrainingsCatalog() {
+  return db.prepare("SELECT id, name FROM trainings_catalog ORDER BY name ASC").all();
+}
+
 function renderAdminSettings(res, payload = {}) {
   const departments = getDepartments();
   const positions = getPositions();
+  const functionsCatalog = getFunctionsCatalog();
+  const trainingsCatalog = getTrainingsCatalog();
   return res.render("admin-settings", {
     departments,
     positions,
+    functionsCatalog,
+    trainingsCatalog,
     error: payload.error || null,
     success: payload.success || null,
   });
@@ -185,6 +260,14 @@ function normalizeSelectedIds(rawValue) {
 
 function getSelectedPositionIdsFromBody(body) {
   return normalizeSelectedIds(body.position_ids || body["position_ids[]"]);
+}
+
+function getSelectedFunctionIdsFromBody(body) {
+  return normalizeSelectedIds(body.function_ids || body["function_ids[]"]);
+}
+
+function getSelectedTrainingIdsFromBody(body) {
+  return normalizeSelectedIds(body.training_ids || body["training_ids[]"]);
 }
 
 app.get("/", (req, res) => {
@@ -203,10 +286,22 @@ app.get("/", (req, res) => {
         JOIN positions p2 ON p2.id = ep2.position_id
         WHERE ep2.employee_id = e.id
           AND LOWER(p2.name) LIKE LOWER(?)
+      ) OR EXISTS (
+        SELECT 1
+        FROM employee_functions ef2
+        JOIN functions_catalog f2 ON f2.id = ef2.function_id
+        WHERE ef2.employee_id = e.id
+          AND LOWER(f2.name) LIKE LOWER(?)
+      ) OR EXISTS (
+        SELECT 1
+        FROM employee_trainings et2
+        JOIN trainings_catalog t2 ON t2.id = et2.training_id
+        WHERE et2.employee_id = e.id
+          AND LOWER(t2.name) LIKE LOWER(?)
       )
     )`);
     const wildcard = `%${queryText}%`;
-    params.push(wildcard, wildcard, wildcard);
+    params.push(wildcard, wildcard, wildcard, wildcard, wildcard);
   }
 
   if (departmentFilter) {
@@ -219,14 +314,22 @@ app.get("/", (req, res) => {
   const employees = db
     .prepare(
       `SELECT e.id, e.first_name, e.last_name, e.department, e.position,
-              GROUP_CONCAT(p.name, ', ') AS dienstgrade,
+              (SELECT GROUP_CONCAT(p.name, ', ')
+               FROM employee_positions ep
+               JOIN positions p ON p.id = ep.position_id
+               WHERE ep.employee_id = e.id) AS dienstgrade,
+              (SELECT GROUP_CONCAT(f.name, ', ')
+               FROM employee_functions ef
+               JOIN functions_catalog f ON f.id = ef.function_id
+               WHERE ef.employee_id = e.id) AS functions_text,
+              (SELECT GROUP_CONCAT(t.name, ', ')
+               FROM employee_trainings et
+               JOIN trainings_catalog t ON t.id = et.training_id
+               WHERE et.employee_id = e.id) AS trainings_text,
               e.created_at, e.updated_at, u.username AS creator
        FROM employees e
        JOIN users u ON u.id = e.created_by
-       LEFT JOIN employee_positions ep ON ep.employee_id = e.id
-       LEFT JOIN positions p ON p.id = ep.position_id
        ${whereSql}
-       GROUP BY e.id
        ORDER BY e.last_name ASC, e.first_name ASC`
     )
     .all(...params);
@@ -363,33 +466,64 @@ app.get("/employees/new", requireLogin, (req, res) => {
     error: null,
     departments: getDepartments(),
     positions: getPositions(),
+    functionsCatalog: getFunctionsCatalog(),
+    trainingsCatalog: getTrainingsCatalog(),
   });
 });
 
 app.post("/employees", requireLogin, (req, res) => {
   const { first_name, last_name, department } = req.body;
   const selectedPositionIds = getSelectedPositionIdsFromBody(req.body);
+  const selectedFunctionIds = getSelectedFunctionIdsFromBody(req.body);
+  const selectedTrainingIds = getSelectedTrainingIdsFromBody(req.body);
   if (!first_name || !last_name) {
     return res.status(400).render("employee-form", {
       employee: req.body,
       error: "Vorname und Nachname sind Pflichtfelder.",
       departments: getDepartments(),
       positions: getPositions(),
+      functionsCatalog: getFunctionsCatalog(),
+      trainingsCatalog: getTrainingsCatalog(),
       selectedPositionIds,
+      selectedFunctionIds,
+      selectedTrainingIds,
     });
   }
 
   try {
     const inserted = db.prepare(
-      `INSERT INTO employees (first_name, last_name, department, position, created_by)
-       VALUES (?, ?, ?, ?, ?)`
-    ).run(first_name.trim(), last_name.trim(), department || "", "", req.user.id);
+      `INSERT INTO employees
+       (first_name, last_name, department, position, functions_text, trainings_text, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      first_name.trim(),
+      last_name.trim(),
+      department || "",
+      "",
+      "",
+      "",
+      req.user.id
+    );
 
     const insertEmployeePosition = db.prepare(
       "INSERT OR IGNORE INTO employee_positions (employee_id, position_id) VALUES (?, ?)"
     );
     selectedPositionIds.forEach((positionId) => {
       insertEmployeePosition.run(inserted.lastInsertRowid, positionId);
+    });
+
+    const insertEmployeeFunction = db.prepare(
+      "INSERT OR IGNORE INTO employee_functions (employee_id, function_id) VALUES (?, ?)"
+    );
+    selectedFunctionIds.forEach((functionId) => {
+      insertEmployeeFunction.run(inserted.lastInsertRowid, functionId);
+    });
+
+    const insertEmployeeTraining = db.prepare(
+      "INSERT OR IGNORE INTO employee_trainings (employee_id, training_id) VALUES (?, ?)"
+    );
+    selectedTrainingIds.forEach((trainingId) => {
+      insertEmployeeTraining.run(inserted.lastInsertRowid, trainingId);
     });
   } catch (err) {
     console.error("Fehler beim Anlegen eines Mitarbeiters:", err);
@@ -398,7 +532,11 @@ app.post("/employees", requireLogin, (req, res) => {
       error: "Mitarbeiter konnte nicht gespeichert werden. Bitte spaeter erneut versuchen.",
       departments: getDepartments(),
       positions: getPositions(),
+      functionsCatalog: getFunctionsCatalog(),
+      trainingsCatalog: getTrainingsCatalog(),
       selectedPositionIds,
+      selectedFunctionIds,
+      selectedTrainingIds,
     });
   }
 
@@ -412,34 +550,61 @@ app.get("/employees/:id/edit", requireLogin, (req, res) => {
     .prepare("SELECT position_id FROM employee_positions WHERE employee_id = ?")
     .all(req.params.id)
     .map((row) => row.position_id);
+  const selectedFunctionIds = db
+    .prepare("SELECT function_id FROM employee_functions WHERE employee_id = ?")
+    .all(req.params.id)
+    .map((row) => row.function_id);
+  const selectedTrainingIds = db
+    .prepare("SELECT training_id FROM employee_trainings WHERE employee_id = ?")
+    .all(req.params.id)
+    .map((row) => row.training_id);
   return res.render("employee-form", {
     employee,
     error: null,
     departments: getDepartments(),
     positions: getPositions(),
+    functionsCatalog: getFunctionsCatalog(),
+    trainingsCatalog: getTrainingsCatalog(),
     selectedPositionIds,
+    selectedFunctionIds,
+    selectedTrainingIds,
   });
 });
 
 app.post("/employees/:id/edit", requireLogin, (req, res) => {
   const { first_name, last_name, department } = req.body;
   const selectedPositionIds = getSelectedPositionIdsFromBody(req.body);
+  const selectedFunctionIds = getSelectedFunctionIdsFromBody(req.body);
+  const selectedTrainingIds = getSelectedTrainingIdsFromBody(req.body);
   if (!first_name || !last_name) {
     return res.status(400).render("employee-form", {
       employee: { id: req.params.id, ...req.body },
       error: "Vorname und Nachname sind Pflichtfelder.",
       departments: getDepartments(),
       positions: getPositions(),
+      functionsCatalog: getFunctionsCatalog(),
+      trainingsCatalog: getTrainingsCatalog(),
       selectedPositionIds,
+      selectedFunctionIds,
+      selectedTrainingIds,
     });
   }
 
   try {
     db.prepare(
       `UPDATE employees
-       SET first_name = ?, last_name = ?, department = ?, position = ?, updated_at = CURRENT_TIMESTAMP
+       SET first_name = ?, last_name = ?, department = ?, position = ?,
+           functions_text = ?, trainings_text = ?, updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`
-    ).run(first_name.trim(), last_name.trim(), department || "", "", req.params.id);
+    ).run(
+      first_name.trim(),
+      last_name.trim(),
+      department || "",
+      "",
+      "",
+      "",
+      req.params.id
+    );
 
     db.prepare("DELETE FROM employee_positions WHERE employee_id = ?").run(req.params.id);
     const insertEmployeePosition = db.prepare(
@@ -448,6 +613,22 @@ app.post("/employees/:id/edit", requireLogin, (req, res) => {
     selectedPositionIds.forEach((positionId) => {
       insertEmployeePosition.run(req.params.id, positionId);
     });
+
+    db.prepare("DELETE FROM employee_functions WHERE employee_id = ?").run(req.params.id);
+    const insertEmployeeFunction = db.prepare(
+      "INSERT OR IGNORE INTO employee_functions (employee_id, function_id) VALUES (?, ?)"
+    );
+    selectedFunctionIds.forEach((functionId) => {
+      insertEmployeeFunction.run(req.params.id, functionId);
+    });
+
+    db.prepare("DELETE FROM employee_trainings WHERE employee_id = ?").run(req.params.id);
+    const insertEmployeeTraining = db.prepare(
+      "INSERT OR IGNORE INTO employee_trainings (employee_id, training_id) VALUES (?, ?)"
+    );
+    selectedTrainingIds.forEach((trainingId) => {
+      insertEmployeeTraining.run(req.params.id, trainingId);
+    });
   } catch (err) {
     console.error("Fehler beim Bearbeiten eines Mitarbeiters:", err);
     return res.status(500).render("employee-form", {
@@ -455,14 +636,18 @@ app.post("/employees/:id/edit", requireLogin, (req, res) => {
       error: "Mitarbeiter konnte nicht aktualisiert werden. Bitte spaeter erneut versuchen.",
       departments: getDepartments(),
       positions: getPositions(),
+      functionsCatalog: getFunctionsCatalog(),
+      trainingsCatalog: getTrainingsCatalog(),
       selectedPositionIds,
+      selectedFunctionIds,
+      selectedTrainingIds,
     });
   }
 
   return res.redirect("/");
 });
 
-app.post("/employees/:id/delete", requireAdmin, (req, res) => {
+app.post("/employees/:id/delete", requireLogin, (req, res) => {
   const employeeId = Number(req.params.id);
   db.prepare("DELETE FROM employees WHERE id = ?").run(employeeId);
   return res.redirect("/");
@@ -520,6 +705,48 @@ app.post("/admin/positions", requireAdmin, (req, res) => {
 app.post("/admin/positions/:id/delete", requireAdmin, (req, res) => {
   db.prepare("DELETE FROM positions WHERE id = ?").run(Number(req.params.id));
   return renderAdminSettings(res, { success: "Dienstgrad geloescht." });
+});
+
+app.post("/admin/functions", requireAdmin, (req, res) => {
+  const name = (req.body.name || "").trim();
+  if (!name) {
+    return renderAdminSettings(res.status(400), { error: "Bitte eine Funktion eingeben." });
+  }
+  try {
+    db.prepare("INSERT INTO functions_catalog (name) VALUES (?)").run(name);
+    return renderAdminSettings(res, { success: "Funktion hinzugefuegt." });
+  } catch (err) {
+    const message = err.code === "SQLITE_CONSTRAINT_UNIQUE"
+      ? "Diese Funktion existiert bereits."
+      : "Funktion konnte nicht hinzugefuegt werden.";
+    return renderAdminSettings(res.status(400), { error: message });
+  }
+});
+
+app.post("/admin/functions/:id/delete", requireAdmin, (req, res) => {
+  db.prepare("DELETE FROM functions_catalog WHERE id = ?").run(Number(req.params.id));
+  return renderAdminSettings(res, { success: "Funktion geloescht." });
+});
+
+app.post("/admin/trainings", requireAdmin, (req, res) => {
+  const name = (req.body.name || "").trim();
+  if (!name) {
+    return renderAdminSettings(res.status(400), { error: "Bitte eine Ausbildung eingeben." });
+  }
+  try {
+    db.prepare("INSERT INTO trainings_catalog (name) VALUES (?)").run(name);
+    return renderAdminSettings(res, { success: "Ausbildung hinzugefuegt." });
+  } catch (err) {
+    const message = err.code === "SQLITE_CONSTRAINT_UNIQUE"
+      ? "Diese Ausbildung existiert bereits."
+      : "Ausbildung konnte nicht hinzugefuegt werden.";
+    return renderAdminSettings(res.status(400), { error: message });
+  }
+});
+
+app.post("/admin/trainings/:id/delete", requireAdmin, (req, res) => {
+  db.prepare("DELETE FROM trainings_catalog WHERE id = ?").run(Number(req.params.id));
+  return renderAdminSettings(res, { success: "Ausbildung geloescht." });
 });
 
 app.get("/admin/users", requireAdmin, (req, res) => {

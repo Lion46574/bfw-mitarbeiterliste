@@ -2,7 +2,7 @@
 
 <section class="card">
   <h2>Admin Einstellungen</h2>
-  <p>Hier koennen Admins Abteilungen und Dienstgrade verwalten.</p>
+  <p>Hier koennen Admins Abteilungen, Dienstgrade, Funktionen und Ausbildungen verwalten.</p>
   <% if (error) { %>
     <p class="error"><%= error %></p>
   <% } %>
@@ -62,6 +62,66 @@
           <td><%= pos.name %></td>
           <td class="actions">
             <form method="post" action="/admin/positions/<%= pos.id %>/delete" class="inline-form">
+              <button type="submit" class="danger">Loeschen</button>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</section>
+
+<section class="card">
+  <h3>Funktionen verwalten</h3>
+  <form method="post" action="/admin/functions" class="form-grid">
+    <label for="function_name">Neue Funktion</label>
+    <input id="function_name" name="name" placeholder="z. B. Gruppenkommandant" required />
+    <button type="submit">Funktion hinzufuegen</button>
+  </form>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Funktion</th>
+        <th>Aktion</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% (functionsCatalog || []).forEach((item) => { %>
+        <tr>
+          <td><%= item.name %></td>
+          <td class="actions">
+            <form method="post" action="/admin/functions/<%= item.id %>/delete" class="inline-form">
+              <button type="submit" class="danger">Loeschen</button>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</section>
+
+<section class="card">
+  <h3>Ausbildungen verwalten</h3>
+  <form method="post" action="/admin/trainings" class="form-grid">
+    <label for="training_name">Neue Ausbildung</label>
+    <input id="training_name" name="name" placeholder="z. B. Atemschutz" required />
+    <button type="submit">Ausbildung hinzufuegen</button>
+  </form>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Ausbildung</th>
+        <th>Aktion</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% (trainingsCatalog || []).forEach((item) => { %>
+        <tr>
+          <td><%= item.name %></td>
+          <td class="actions">
+            <form method="post" action="/admin/trainings/<%= item.id %>/delete" class="inline-form">
               <button type="submit" class="danger">Loeschen</button>
             </form>
           </td>

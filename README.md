@@ -56,3 +56,22 @@ Optional kannst du eigene Werte setzen:
 Hinweis:
 - Render Free Plan kann beim ersten Aufruf kurz schlafen.
 - Fuer Google-Indexierung spaeter eine eigene Domain verbinden.
+
+## Daten dauerhaft speichern
+
+Die App speichert alle Aenderungen in SQLite-Dateien im Ordner `data/`.
+Damit bleiben Mitarbeiter, Konten und Einstellungen nach Neustarts erhalten.
+
+Optional kannst du eigene Pfade setzen:
+
+- `DATA_DIR` (z. B. `C:\\bfw-data`)
+- `DATABASE_PATH` (z. B. `C:\\bfw-data\\database.sqlite`)
+- `SESSION_DB_PATH` (z. B. `C:\\bfw-data\\sessions.sqlite`)
+
+### Wichtiger Hinweis fuer Render
+
+Auf Render musst du einen Persistent Disk mounten (z. B. `/var/data`) und setzen:
+
+- `DATA_DIR=/var/data`
+
+Dann bleiben deine Website-Aenderungen auch nach Deploy/Restart erhalten.

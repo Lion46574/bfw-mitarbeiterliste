@@ -13,10 +13,10 @@
       <a href="/">Start</a>
       <% if (user) { %>
         <a href="/employees/new">Mitarbeiter eintragen</a>
-        <a href="/account/password">Passwort aendern</a>
+        <a href="/password">Passwort aendern</a>
         <% if (user.role === "admin") { %>
           <a href="/admin/users">Konten verwalten</a>
-          <a href="/admin/settings">Einstellungen</a>
+          <a href="/settings">Einstellungen</a>
         <% } %>
         <form action="/logout" method="post" class="inline-form">
           <button type="submit">Logout (<%= user.username %>)</button>

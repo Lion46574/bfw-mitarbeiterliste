@@ -20,24 +20,57 @@
     <label for="department">Abteilung</label>
     <select id="department" name="department">
       <option value="">Optional: keine Abteilung</option>
-      <% (departments || []).forEach((dep) => { %>
-        <option value="<%= dep.name %>" <%= (employee?.department || '') === dep.name ? 'selected' : '' %>>
-          <%= dep.name %>
+      <% (typeof departments !== 'undefined' && Array.isArray(departments) ? departments : []).forEach((dep) => { %>
+        <% const depName = typeof dep === 'string' ? dep : dep.name; %>
+        <option value="<%= depName %>" <%= (employee?.department || '') === depName ? 'selected' : '' %>>
+          <%= depName %>
         </option>
       <% }) %>
     </select>
 
     <label>Dienstgrade (Mehrfachauswahl)</label>
     <div class="options-list">
-      <% (positions || []).forEach((pos) => { %>
+      <% (typeof positions !== 'undefined' && Array.isArray(positions) ? positions : []).forEach((pos) => { %>
+        <% const posId = typeof pos === 'number' ? pos : pos.id; %>
+        <% const posName = typeof pos === 'string' ? pos : pos.name; %>
         <label class="option-item">
           <input
             type="checkbox"
             name="position_ids[]"
-            value="<%= pos.id %>"
-            <%= (selectedPositionIds || []).includes(pos.id) ? 'checked' : '' %>
+            value="<%= posId %>"
+            <%= ((typeof selectedPositionIds !== 'undefined' && Array.isArray(selectedPositionIds)) ? selectedPositionIds : []).includes(posId) ? 'checked' : '' %>
           />
-          <span><%= pos.name %></span>
+          <span><%= posName %></span>
+        </label>
+      <% }) %>
+    </div>
+
+    <label>Funktionen (Mehrfachauswahl)</label>
+    <div class="options-list">
+      <% (typeof functionsCatalog !== 'undefined' && Array.isArray(functionsCatalog) ? functionsCatalog : []).forEach((item) => { %>
+        <label class="option-item">
+          <input
+            type="checkbox"
+            name="function_ids[]"
+            value="<%= item.id %>"
+            <%= ((typeof selectedFunctionIds !== 'undefined' && Array.isArray(selectedFunctionIds)) ? selectedFunctionIds : []).includes(item.id) ? 'checked' : '' %>
+          />
+          <span><%= item.name %></span>
+        </label>
+      <% }) %>
+    </div>
+
+    <label>Ausbildungen (Mehrfachauswahl)</label>
+    <div class="options-list">
+      <% (typeof trainingsCatalog !== 'undefined' && Array.isArray(trainingsCatalog) ? trainingsCatalog : []).forEach((item) => { %>
+        <label class="option-item">
+          <input
+            type="checkbox"
+            name="training_ids[]"
+            value="<%= item.id %>"
+            <%= ((typeof selectedTrainingIds !== 'undefined' && Array.isArray(selectedTrainingIds)) ? selectedTrainingIds : []).includes(item.id) ? 'checked' : '' %>
+          />
+          <span><%= item.name %></span>
         </label>
       <% }) %>
     </div>
