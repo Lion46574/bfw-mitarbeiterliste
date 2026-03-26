@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BF Wien Mitarbeiterliste</title>
-  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/styles.css?v=red-ui-1" />
 </head>
 <body>
   <header class="topbar">
@@ -16,6 +16,7 @@
         <a href="/account/password">Passwort aendern</a>
         <% if (user.role === "admin") { %>
           <a href="/admin/users">Konten verwalten</a>
+          <a href="/admin/settings">Einstellungen</a>
         <% } %>
         <form action="/logout" method="post" class="inline-form">
           <button type="submit">Logout (<%= user.username %>)</button>

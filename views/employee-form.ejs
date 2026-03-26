@@ -18,10 +18,29 @@
     <input id="last_name" name="last_name" value="<%= employee?.last_name || '' %>" required />
 
     <label for="department">Abteilung</label>
-    <input id="department" name="department" value="<%= employee?.department || '' %>" />
+    <select id="department" name="department">
+      <option value="">Optional: keine Abteilung</option>
+      <% (departments || []).forEach((dep) => { %>
+        <option value="<%= dep.name %>" <%= (employee?.department || '') === dep.name ? 'selected' : '' %>>
+          <%= dep.name %>
+        </option>
+      <% }) %>
+    </select>
 
-    <label for="position">Position</label>
-    <input id="position" name="position" value="<%= employee?.position || '' %>" />
+    <label>Dienstgrade (Mehrfachauswahl)</label>
+    <div class="options-list">
+      <% (positions || []).forEach((pos) => { %>
+        <label class="option-item">
+          <input
+            type="checkbox"
+            name="position_ids[]"
+            value="<%= pos.id %>"
+            <%= (selectedPositionIds || []).includes(pos.id) ? 'checked' : '' %>
+          />
+          <span><%= pos.name %></span>
+        </label>
+      <% }) %>
+    </div>
 
     <button type="submit">Speichern</button>
   </form>

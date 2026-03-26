@@ -1,5 +1,11 @@
 # BF Wien Mitarbeiterliste
 
+## Erster Befehl (Terminal)
+
+`npm install`
+
+`npm start`
+
 Oeffentliche Mitarbeiterliste fuer die BF Wien (Feuerwehr) mit geschuetzter Bearbeitung.
 
 ## Funktionen

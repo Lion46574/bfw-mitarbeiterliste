@@ -1,0 +1,74 @@
+<%- include("partials/header") %>
+
+<section class="card">
+  <h2>Admin Einstellungen</h2>
+  <p>Hier koennen Admins Abteilungen und Dienstgrade verwalten.</p>
+  <% if (error) { %>
+    <p class="error"><%= error %></p>
+  <% } %>
+  <% if (success) { %>
+    <p class="success"><%= success %></p>
+  <% } %>
+</section>
+
+<section class="card">
+  <h3>Abteilungen verwalten</h3>
+  <form method="post" action="/admin/departments" class="form-grid">
+    <label for="department_name">Neue Abteilung</label>
+    <input id="department_name" name="name" placeholder="z. B. MA-68-Leopoldstadt" required />
+    <button type="submit">Abteilung hinzufuegen</button>
+  </form>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Abteilung</th>
+        <th>Aktion</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% departments.forEach((dep) => { %>
+        <tr>
+          <td><%= dep.name %></td>
+          <td class="actions">
+            <form method="post" action="/admin/departments/<%= dep.id %>/delete" class="inline-form">
+              <button type="submit" class="danger">Loeschen</button>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</section>
+
+<section class="card">
+  <h3>Dienstgrade verwalten</h3>
+  <form method="post" action="/admin/positions" class="form-grid">
+    <label for="position_name">Neuer Dienstgrad</label>
+    <input id="position_name" name="name" placeholder="z. B. FM-Feuwehrmann" required />
+    <button type="submit">Dienstgrad hinzufuegen</button>
+  </form>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Dienstgrad</th>
+        <th>Aktion</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% positions.forEach((pos) => { %>
+        <tr>
+          <td><%= pos.name %></td>
+          <td class="actions">
+            <form method="post" action="/admin/positions/<%= pos.id %>/delete" class="inline-form">
+              <button type="submit" class="danger">Loeschen</button>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</section>
+
+<%- include("partials/footer") %>

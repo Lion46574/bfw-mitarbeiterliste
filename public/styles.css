@@ -5,12 +5,12 @@
 body {
   margin: 0;
   font-family: Arial, sans-serif;
-  background: #f4f6f8;
-  color: #1f2a37;
+  background: #fff1f2;
+  color: #2b0a0d;
 }
 
 .topbar {
-  background: #0f4c81;
+  background: #ff0000;
   color: #fff;
   padding: 16px 24px;
   display: flex;
@@ -56,7 +56,7 @@ body {
   border-radius: 10px;
   padding: 16px;
   margin-bottom: 18px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 8px rgba(161, 29, 44, 0.14);
 }
 
 .small {
@@ -70,7 +70,7 @@ table {
 
 th,
 td {
-  border: 1px solid #e3e7ee;
+  border: 1px solid #f1b8bf;
   padding: 10px;
   text-align: left;
   vertical-align: top;
@@ -80,6 +80,30 @@ td {
   display: grid;
   gap: 10px;
   max-width: 600px;
+}
+
+.options-list {
+  border: 1px solid #f1b8bf;
+  border-radius: 8px;
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+  background: #fff7f8;
+}
+
+.option-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.option-item:hover {
+  background: #ffe2e6;
 }
 
 .filter-row {
@@ -92,8 +116,8 @@ td {
 .button-link {
   display: inline-block;
   text-decoration: none;
-  color: #1f2a37;
-  border: 1px solid #cbd5e1;
+  color: #7f1220;
+  border: 1px solid #d23b4d;
   border-radius: 6px;
   padding: 8px 10px;
   background: #fff;
@@ -107,8 +131,20 @@ button {
   padding: 8px;
 }
 
+input[type="checkbox"] {
+  padding: 0;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
 button {
   width: fit-content;
+  background: #c1121f;
+  color: #fff;
+  border: 1px solid #9f0f19;
+  border-radius: 6px;
+  cursor: pointer;
 }
 
 .actions {
@@ -129,6 +165,6 @@ button {
 }
 
 .success {
-  color: #0f6b34;
+  color: #b00020;
   font-weight: 600;
 }

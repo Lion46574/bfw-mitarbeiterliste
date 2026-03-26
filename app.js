@@ -33,11 +33,46 @@ db.exec(`
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(created_by) REFERENCES users(id)
   );
+
+  CREATE TABLE IF NOT EXISTS departments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT UNIQUE NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS positions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT UNIQUE NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS employee_positions (
+    employee_id INTEGER NOT NULL,
+    position_id INTEGER NOT NULL,
+    PRIMARY KEY (employee_id, position_id),
+    FOREIGN KEY(employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+    FOREIGN KEY(position_id) REFERENCES positions(id) ON DELETE CASCADE
+  );
 `);
 
 const userColumns = db.prepare("PRAGMA table_info(users)").all();
 if (!userColumns.some((column) => column.name === "is_active")) {
   db.exec("ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1");
+}
+
+function seedDefaultOptions() {
+  const defaultDepartments = ["MA-68-Leopoldstadt", "MA-68-Zentral"];
+  const defaultPositions = [
+    "PFM-Provisorischerfeuewerhmann",
+    "FM-Feuwehrmann",
+    "OFM-Obefeuerwehrmann",
+  ];
+
+  const insertDepartment = db.prepare("INSERT OR IGNORE INTO departments (name) VALUES (?)");
+  const insertPosition = db.prepare("INSERT OR IGNORE INTO positions (name) VALUES (?)");
+
+  defaultDepartments.forEach((name) => insertDepartment.run(name));
+  defaultPositions.forEach((name) => insertPosition.run(name));
 }
 
 function createDefaultAdmin() {
@@ -58,6 +93,7 @@ function createDefaultAdmin() {
 }
 
 createDefaultAdmin();
+seedDefaultOptions();
 
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
@@ -92,6 +128,8 @@ app.use((req, res, next) => {
     req.user = null;
   }
   res.locals.user = req.user;
+  res.locals.departments = [];
+  res.locals.filters = { q: "", department: "" };
   next();
 });
 
@@ -105,6 +143,31 @@ function requireAdmin(req, res, next) {
   return next();
 }
 
+function getDepartments() {
+  return db.prepare("SELECT id, name FROM departments ORDER BY name ASC").all();
+}
+
+function getPositions() {
+  return db.prepare("SELECT id, name FROM positions ORDER BY name ASC").all();
+}
+
+function renderAdminSettings(res, payload = {}) {
+  const departments = getDepartments();
+  const positions = getPositions();
+  return res.render("admin-settings", {
+    departments,
+    positions,
+    error: payload.error || null,
+    success: payload.success || null,
+  });
+}
+
+function normalizeSelectedIds(rawValue) {
+  if (!rawValue) return [];
+  const list = Array.isArray(rawValue) ? rawValue : [rawValue];
+  return [...new Set(list.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0))];
+}
+
 app.get("/", (req, res) => {
   const queryText = (req.query.q || "").trim();
   const departmentFilter = (req.query.department || "").trim();
@@ -115,7 +178,13 @@ app.get("/", (req, res) => {
     whereParts.push(`(
       LOWER(e.first_name) LIKE LOWER(?) OR
       LOWER(e.last_name) LIKE LOWER(?) OR
-      LOWER(e.position) LIKE LOWER(?)
+      EXISTS (
+        SELECT 1
+        FROM employee_positions ep2
+        JOIN positions p2 ON p2.id = ep2.position_id
+        WHERE ep2.employee_id = e.id
+          AND LOWER(p2.name) LIKE LOWER(?)
+      )
     )`);
     const wildcard = `%${queryText}%`;
     params.push(wildcard, wildcard, wildcard);
@@ -131,10 +200,14 @@ app.get("/", (req, res) => {
   const employees = db
     .prepare(
       `SELECT e.id, e.first_name, e.last_name, e.department, e.position,
+              GROUP_CONCAT(p.name, ', ') AS dienstgrade,
               e.created_at, e.updated_at, u.username AS creator
        FROM employees e
        JOIN users u ON u.id = e.created_by
+       LEFT JOIN employee_positions ep ON ep.employee_id = e.id
+       LEFT JOIN positions p ON p.id = ep.position_id
        ${whereSql}
+       GROUP BY e.id
        ORDER BY e.last_name ASC, e.first_name ASC`
     )
     .all(...params);
@@ -225,22 +298,38 @@ app.post("/account/password", requireLogin, (req, res) => {
 });
 
 app.get("/employees/new", requireLogin, (req, res) => {
-  res.render("employee-form", { employee: null, error: null });
+  res.render("employee-form", {
+    employee: null,
+    error: null,
+    departments: getDepartments(),
+    positions: getPositions(),
+  });
 });
 
 app.post("/employees", requireLogin, (req, res) => {
-  const { first_name, last_name, department, position } = req.body;
+  const { first_name, last_name, department } = req.body;
+  const selectedPositionIds = normalizeSelectedIds(req.body.position_ids);
   if (!first_name || !last_name) {
     return res.status(400).render("employee-form", {
       employee: req.body,
       error: "Vorname und Nachname sind Pflichtfelder.",
+      departments: getDepartments(),
+      positions: getPositions(),
+      selectedPositionIds,
     });
   }
 
-  db.prepare(
+  const inserted = db.prepare(
     `INSERT INTO employees (first_name, last_name, department, position, created_by)
      VALUES (?, ?, ?, ?, ?)`
-  ).run(first_name.trim(), last_name.trim(), department || "", position || "", req.user.id);
+  ).run(first_name.trim(), last_name.trim(), department || "", "", req.user.id);
+
+  const insertEmployeePosition = db.prepare(
+    "INSERT OR IGNORE INTO employee_positions (employee_id, position_id) VALUES (?, ?)"
+  );
+  selectedPositionIds.forEach((positionId) => {
+    insertEmployeePosition.run(inserted.lastInsertRowid, positionId);
+  });
 
   return res.redirect("/");
 });
@@ -248,15 +337,29 @@ app.post("/employees", requireLogin, (req, res) => {
 app.get("/employees/:id/edit", requireLogin, (req, res) => {
   const employee = db.prepare("SELECT * FROM employees WHERE id = ?").get(req.params.id);
   if (!employee) return res.status(404).send("Mitarbeiter nicht gefunden.");
-  return res.render("employee-form", { employee, error: null });
+  const selectedPositionIds = db
+    .prepare("SELECT position_id FROM employee_positions WHERE employee_id = ?")
+    .all(req.params.id)
+    .map((row) => row.position_id);
+  return res.render("employee-form", {
+    employee,
+    error: null,
+    departments: getDepartments(),
+    positions: getPositions(),
+    selectedPositionIds,
+  });
 });
 
 app.post("/employees/:id/edit", requireLogin, (req, res) => {
-  const { first_name, last_name, department, position } = req.body;
+  const { first_name, last_name, department } = req.body;
+  const selectedPositionIds = normalizeSelectedIds(req.body.position_ids);
   if (!first_name || !last_name) {
     return res.status(400).render("employee-form", {
       employee: { id: req.params.id, ...req.body },
       error: "Vorname und Nachname sind Pflichtfelder.",
+      departments: getDepartments(),
+      positions: getPositions(),
+      selectedPositionIds,
     });
   }
 
@@ -264,9 +367,73 @@ app.post("/employees/:id/edit", requireLogin, (req, res) => {
     `UPDATE employees
      SET first_name = ?, last_name = ?, department = ?, position = ?, updated_at = CURRENT_TIMESTAMP
      WHERE id = ?`
-  ).run(first_name.trim(), last_name.trim(), department || "", position || "", req.params.id);
+  ).run(first_name.trim(), last_name.trim(), department || "", "", req.params.id);
+
+  db.prepare("DELETE FROM employee_positions WHERE employee_id = ?").run(req.params.id);
+  const insertEmployeePosition = db.prepare(
+    "INSERT OR IGNORE INTO employee_positions (employee_id, position_id) VALUES (?, ?)"
+  );
+  selectedPositionIds.forEach((positionId) => {
+    insertEmployeePosition.run(req.params.id, positionId);
+  });
 
   return res.redirect("/");
+});
+
+app.post("/employees/:id/delete", requireAdmin, (req, res) => {
+  const employeeId = Number(req.params.id);
+  db.prepare("DELETE FROM employees WHERE id = ?").run(employeeId);
+  return res.redirect("/");
+});
+
+app.get("/admin/settings", requireAdmin, (req, res) => {
+  return renderAdminSettings(res);
+});
+
+app.post("/admin/departments", requireAdmin, (req, res) => {
+  const name = (req.body.name || "").trim();
+  if (!name) {
+    return renderAdminSettings(res.status(400), {
+      error: "Bitte einen Abteilungsnamen eingeben.",
+    });
+  }
+  try {
+    db.prepare("INSERT INTO departments (name) VALUES (?)").run(name);
+    return renderAdminSettings(res, { success: "Abteilung hinzugefuegt." });
+  } catch (err) {
+    const message = err.code === "SQLITE_CONSTRAINT_UNIQUE"
+      ? "Diese Abteilung existiert bereits."
+      : "Abteilung konnte nicht hinzugefuegt werden.";
+    return renderAdminSettings(res.status(400), { error: message });
+  }
+});
+
+app.post("/admin/departments/:id/delete", requireAdmin, (req, res) => {
+  db.prepare("DELETE FROM departments WHERE id = ?").run(Number(req.params.id));
+  return renderAdminSettings(res, { success: "Abteilung geloescht." });
+});
+
+app.post("/admin/positions", requireAdmin, (req, res) => {
+  const name = (req.body.name || "").trim();
+  if (!name) {
+    return renderAdminSettings(res.status(400), {
+      error: "Bitte einen Dienstgrad eingeben.",
+    });
+  }
+  try {
+    db.prepare("INSERT INTO positions (name) VALUES (?)").run(name);
+    return renderAdminSettings(res, { success: "Dienstgrad hinzugefuegt." });
+  } catch (err) {
+    const message = err.code === "SQLITE_CONSTRAINT_UNIQUE"
+      ? "Dieser Dienstgrad existiert bereits."
+      : "Dienstgrad konnte nicht hinzugefuegt werden.";
+    return renderAdminSettings(res.status(400), { error: message });
+  }
+});
+
+app.post("/admin/positions/:id/delete", requireAdmin, (req, res) => {
+  db.prepare("DELETE FROM positions WHERE id = ?").run(Number(req.params.id));
+  return renderAdminSettings(res, { success: "Dienstgrad geloescht." });
 });
 
 app.get("/admin/users", requireAdmin, (req, res) => {
